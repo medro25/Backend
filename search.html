@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <br /><br />
+        <center><strong>Ache Crawl</strong></center>
+        <br /><br />
+        <br />
+        <div class="input-group">
+            <input id="text" type="text" class="form-control" placeholder="Enter text" />
+            <div class="input-group-btn">
+                <button class="btn btn-default" id="submit" type="submit">
+            <i class="glyphicon glyphicon-search"></i>
+          </button>
+            </div>
+        </div>
+
+        <div id="result" class="table-responsive"></div>
+        <br />
+        <div>
+            <button id="prev" type="button" class="btn btn-primary">
+          Previous
+        </button>
+            <button id="next" type="button" class="btn btn-primary">Next</button>
+        </div>
+    </div>
+
+    <script>
+        // getting the text from search bar element
+        var textfield = document.getElementById("text");
+        // adding event listener on search button click when enter key get's pressed
+        textfield.addEventListener("keyup", function(e) {
+            if (e.keyCode === 13) {
+                e.preventDefault();
+                document.getElementById("submit").click();
+            }
+        });
+        // pagination size
+        var fetch_size = 10;
+        // elasticsearch pagination param
+        var from = 0;
+        // count for number of result
+        var record_count = 0;
+        // elasticsearch pagination param
+        var current_window_arr = 0;
+// toatl fetch records
+        var total_records = 0;
+// previous, next button disabled.
+        $(document).ready(function() {
+            $("#prev").attr("disabled", true);
+            $("#next").attr("disabled", true);
+            $("#submit").click(function() {
+                from = 0;
+                record_count = 0;
+                current_window_arr = 0;
+                api(from);
+            });
+            $("#next").click(function() {
+                console.log("next");
+                from = from + 10;
+                api(from);
+            });
+            // decrease parameter tby 10 on next button
+            $("#prev").click(function() {
+                console.log("prev");
+                record_count -= 10;
+                record_count = record_count - current_window_arr;
+                from = from - 10;
+                api(from);
+            });
+        });
+	// if text entered
+        function api(from) {
+            if (!$("#text").val() == "") {
+                $("#result").html("Please Wait...");
+// getting the search text value
+                var text = $("#text").val();
+                // preparing url with params source = domain,url,title
+		// q is the search query param
+		// from is the pagination param
+		// size is the fetch_length param
+                var url =
+                    "http://127.0.0.1:9200/new1/_search?_source=domain,url,title&q=title:" +
+                    text +
+                    "&from=" +
+                    from +
+                    "&size=" +
+                    fetch_size;
+                console.log(url);
+
+                // using fetch method to hit call to the API. Getting the result in json
+                
+                            fetch(url)
+                        .then(response => response.json())
+                        .then(data => apicall(data)); //sending json data to apicall method
+            } else alert("Please enter text.");// if text not entered, alerting user.
+        }
+// this method will parse the data and pring on front-end
+        function apicall(data) {
+            result = data
+            console.log(result);
+            total_records = result["hits"]["total"]["value"];// total number of results from elasticsearch response
+            current_window_arr = result["hits"]["hits"].length; // total results in specific page from elasticsearch response
+
+
+            $("#result").html(
+                "<br>About " +
+                result["hits"]["total"]["value"] +
+                " results (" +
+                (result["took"] / 1000).toFixed(2) +
+                " seconds)<br><br><br><br>"
+            );
+// preparing html 
+		// fetching time took from elasticsearch response
+
+            result = result["hits"]["hits"].map(function(i) {
+                record_count += 1;
+
+                var htm = "";
+
+                htm += "<table class='table'>";
+                htm += "<tr><td><a href='"+i["_source"]["url"]+"'>";
+                htm +=
+                    record_count +
+                    ". <strong>Title: " +
+                    i["_source"]["title"] +
+                    "</strong></a>";
+                htm += "<br><br>Site: "+ i["_source"]["domain"];
+                htm += "</td></tr>";
+                htm += "</table>";
+                $("#result").append(htm);
+                return i["_source"];
+            });
+            console.log("prev:", from);
+            console.log("next:", record_count, total_records);
+            // condition to enable/disable previous button
+            if (from >= 10) $("#prev").attr("disabled", false);
+            else $("#prev").attr("disabled", true);
+// condition to enable/disable next button
+            if (record_count < total_records) $("#next").attr("disabled", false);
+            else $("#next").attr("disabled", true);
+
+            console.log(result);
+            // alerting user if no result found
+            if (result.length == 0) $("#result").html("Sorry, No results.");
+        }
+    </script>
+</body>
+
+</html>
